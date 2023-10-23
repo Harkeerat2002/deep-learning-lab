@@ -35,11 +35,9 @@ def plot_polynomial(coeffs, z_range, color="b"):
     z_min, z_max = z_range
     z = np.linspace(z_min, z_max, 100)
     y = w0 + w1 * z + w2 * z**2 + w3 * z**3 + w4 * z**4
-    plt.rcParams.update(params)
     plt.plot(z, y, color=color)
     plt.xlabel("z")
     plt.ylabel("y")
-    plt.title("Polynomial Plot")
     plt.show()
 
 
@@ -52,11 +50,11 @@ color = "b"
 
 # *** Question 2 **
 def create_dataset(
-    coeffs=[1, 2, 3, 4, 5],
-    z_range=np.array([0, -10, 1, -1, 1 / 1000]),
-    sample_size=10,
-    sigma=0.1,
-    seed=42,
+    coeffs,  # = w
+    z_range,
+    sample_size,
+    sigma,
+    seed,
 ):
     print("Starting Exercise 2")
 
@@ -66,27 +64,24 @@ def create_dataset(
 
     X = random_state.uniform(x_min, x_max, (sample_size))
 
+    X_final = np.array((np.ones(sample_size), X, X**2, X**3, X**4)).T
+
     epsilon = random_state.normal(0.0, sigma, sample_size)
 
-    y = (
-        coeffs[0]
-        + coeffs[1] * X
-        + coeffs[2] * X**2
-        + coeffs[3] * X**3
-        + coeffs[4] * X**4
-        + epsilon
-    )
-    return X, y
+    y = np.dot(X_final, coeffs) + epsilon
+
+    return X_final, y
 
 
 # *** Question 4 **
-def visualize_data(X, y, coeffs, z_range, title=""):
+def visualize_data(X, y, coeffs, z_range, sample_size, title=""):
     print("Starting Exercise 4")
     plt.rcParams.update(params)
-    plt.plot(X, y, "ro", alpha=0.7)
+    plt.scatter(X[:, 1], y, color="r")
 
     z_min, z_max = z_range
-    z = np.linspace(z_min, z_max, 100)
+    z = np.linspace(z_min, z_max, sample_size)
+
     w0, w1, w2, w3, w4 = coeffs
     y = w0 + w1 * z + w2 * z**2 + w3 * z**3 + w4 * z**4
     plt.plot(z, y, color="b")
@@ -100,22 +95,13 @@ def visualize_data(X, y, coeffs, z_range, title=""):
 class PolynomialRegressionModel(nn.Module):
     def __init__(self, input_dim, output_dim, device):
         super(PolynomialRegressionModel, self).__init__()
-        self.fc1 = nn.Linear(input_dim, 100, bias=True).to(device)
-        self.fc2 = nn.Linear(100, 100, bias=True).to(device)
-        self.fc3 = nn.Linear(100, 100, bias=True).to(device)
-        self.fc4 = nn.Linear(100, output_dim, bias=True).to(device)
+        self.fc1 = nn.Linear(input_dim, output_dim).to(device)
+
         self.device = device
 
     def forward(self, x):
         x = self.fc1(x)
-        x = F.relu(x)
-        x = self.fc2(x)
-        x = F.relu(x)
-        x = self.fc3(x)
-        x = F.relu(x)
-        x = self.fc4(x)
-        
-        
+
         return x
 
 
@@ -136,8 +122,12 @@ if __name__ == "__main__":
 
     X_eval, y_eval = create_dataset(coeffs, z_range, sample_size_eval, sigma, seed_eval)
 
-    # visualize_data(X_train, y_train, coeffs, z_range, title="Training Data")
-    # visualize_data(X_eval, y_eval, coeffs, z_range, title="Evaluation Data")
+    # visualize_data(
+    #     X_train, y_train, coeffs, z_range, sample_size_train, title="Training Data"
+    # )
+    # visualize_data(
+    #     X_eval, y_eval, coeffs, z_range, sample_size_eval, title="Evaluation Data"
+    # )
 
     # *** Question 5 **
     print("Starting Exercise 5")
@@ -154,15 +144,8 @@ if __name__ == "__main__":
     # Print the selected device
     print("Using device:", DEVICE)
 
-    # Reshaping the Data to Polynomial Features
-    X_train = X_train.reshape(-1, 1)
-    X_eval = X_eval.reshape(-1, 1)
+    input_dim = 5
 
-    degree = 4
-
-    # X_train = model.fit_transform(X_train)
-    # X_eval = model.fit_transform(X_eval)
-    input_dim = X_train.shape[1]
     output_dim = 1
 
     model = PolynomialRegressionModel(input_dim, output_dim, DEVICE)
@@ -170,11 +153,11 @@ if __name__ == "__main__":
     criteria = nn.MSELoss()
     optimizer = optim.SGD(model.parameters(), lr=0.001)
 
-    # Shape expected by nn.Linear
-    X_train = X_train.reshape(sample_size_train, 1)
-    y_train = y_train.reshape(sample_size_train, 1)
-    X_eval = X_eval.reshape(sample_size_eval, 1)
-    y_eval = y_eval.reshape(sample_size_eval, 1)
+    # Shape
+    X_train = X_train.reshape(sample_size_train, input_dim)
+    y_train = y_train.reshape(sample_size_train, output_dim)
+    X_eval = X_eval.reshape(sample_size_eval, input_dim)
+    y_eval = y_eval.reshape(sample_size_eval, output_dim)
 
     # Convert everything to torch
     X_train = torch.tensor(X_train, dtype=torch.float32)
@@ -189,88 +172,88 @@ if __name__ == "__main__":
     y_eval = y_eval.to(DEVICE)
 
     initial_model_value = model(X_train)
-    train_losses = []
-    eval_losses = []
-    
+
+    print(len(X_train), len(y_train))
 
     print(
         criteria(initial_model_value, torch.tensor(y_train).reshape(-1, 1).to(DEVICE))
     )
 
+    train_losses = []
+    eval_losses = []
+    learned_coef = []
+
     # Train the model
-    num_epochs = 5000
+    num_epochs = 3000
 
     for epoch in range(num_epochs):
         model.train()
-        outputs = model(X_train)
-        loss = criteria(outputs, y_train)
-
-        # Backward pass and optimization
         optimizer.zero_grad()
+        y_pred = model(X_train)
+        loss = criteria(y_pred, y_train)
         loss.backward()
         optimizer.step()
+        model.eval()
 
         with torch.no_grad():
-            outputs_eval = model(X_eval)
-            loss_eval = criteria(outputs_eval, y_eval)
-            
-            train_loss = loss.item()
-            eval_loss = loss_eval.item()
+            y_pred_eval = model(X_eval)
+            eval_loss = criteria(y_pred_eval, y_eval)
+            eval_losses.append(eval_loss.item())
+            train_losses.append(loss.item())
 
-            train_losses.append(train_loss)
-            eval_losses.append(eval_loss)
-            if (epoch + 1) % 100 == 0:
-                print(
-                    "Epoch [{}/{}], Loss: {:.4f}".format(
-                        epoch + 1, num_epochs, loss.item()
-                    )
-                )
+            weights = []
+            for name, param in model.named_parameters():
+                if param.requires_grad and "weight" in name:
+                    weights.append(param.data.cpu().numpy()[0])
+
+            learned_coef.append(weights)
+
+            if epoch % 1000 == 0:
+                print("Epoch:", epoch, "Loss:", loss.item())
 
     print("Final loss:", loss.item())
 
+    for name, param in model.named_parameters():
+        if param.requires_grad:
+            print(param.data[0])
+
     # *** Question 6 **
-    plt.rcParams.update(params)
-    plt.plot(train_losses, label="Training Loss")
-    plt.plot(eval_losses, label="Evaluation Loss")
-    plt.xlabel("Epoch")
-    plt.ylabel("Loss")
-    plt.legend()
-    plt.show()
+    # plt.rcParams.update(params)
+    # plt.plot(train_losses, label="Training Loss")
+    # plt.plot(eval_losses, label="Evaluation Loss")
+    # plt.xlabel("Epoch")
+    # plt.ylabel("Loss")
+    # plt.legend()
+    # plt.show()
 
     # *** Question 7 **
-    W0 = 0
-    W1 = model.state_dict()["fc1.weight"].cpu().detach().numpy()
-    W2 = model.state_dict()["fc2.weight"].cpu().detach().numpy()
-    W3 = model.state_dict()["fc3.weight"].cpu().detach().numpy()
-    W4 = model.state_dict()["fc4.weight"].cpu().detach().numpy()
-    
-    w0, w1, w2, w3, w4 = coeffs
-    
-    z_min, z_max = z_range
-    z = np.linspace(z_min, z_max, 100)
-    
-    
-    y = w0 + w1 * z + w2 * z**2 + w3 * z**3 + w4 * z**4
-    
-    Y = model(torch.tensor(z.reshape(-1, 1), dtype=torch.float32).to(DEVICE)).cpu().detach().numpy()
-    
-    print(len(y))
-    print(len(Y))
-    
-    # plt.rcParams.update(params)
-    # plt.plot(z, y, color="b")
-    # plt.plot(z, Y, color="r")
-    # plt.xlabel("z")
-    # plt.ylabel("y")
-    # plt.title("Polynomial Plot")
-    # plt.legend(["Original Coefficient", "Estimated Coefficient"])
-    # plt.show() 
-    
     
 
-    
 
     # *** Question 8 **
+    
+    print(len(learned_coef))
+    print(len(learned_coef[0][0]))
+    
+    # create a double list of w0 values for each epoch
+    learned_w0 = []
+    for i in range(len(learned_coef)):
+        learned_w0.append(learned_coef[i][0][0])
+        # print(learned_coef[i][0][0])    
+
+    # Extract true w0 value
+    true_w0 = coeffs[0]
+
+    # Create a list of epoch numbers for x-axis
+    epochs = list(range(len(learned_w0)))
+
+    # Plot the estimated and true w0 values
+    plt.plot(epochs, learned_w0, label="Estimated w0")
+    plt.plot(epochs, [true_w0] * len(epochs), label="True w0")
+    plt.xlabel("Epoch")
+    plt.ylabel("w0")
+    plt.legend()
+    plt.show()
 
     # *** Question 9 **
 
