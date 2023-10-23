@@ -101,12 +101,21 @@ class PolynomialRegressionModel(nn.Module):
     def __init__(self, input_dim, output_dim, device):
         super(PolynomialRegressionModel, self).__init__()
         self.fc1 = nn.Linear(input_dim, 100, bias=True).to(device)
-        self.fc2 = nn.Linear(100, output_dim, bias=True).to(device)
+        self.fc2 = nn.Linear(100, 100, bias=True).to(device)
+        self.fc3 = nn.Linear(100, 100, bias=True).to(device)
+        self.fc4 = nn.Linear(100, output_dim, bias=True).to(device)
         self.device = device
 
     def forward(self, x):
-        x = torch.relu(self.fc1(x)).to(self.device)
-        x = self.fc2(x).to(self.device)
+        x = self.fc1(x)
+        x = F.relu(x)
+        x = self.fc2(x)
+        x = F.relu(x)
+        x = self.fc3(x)
+        x = F.relu(x)
+        x = self.fc4(x)
+        
+        
         return x
 
 
@@ -159,7 +168,7 @@ if __name__ == "__main__":
     model = PolynomialRegressionModel(input_dim, output_dim, DEVICE)
 
     criteria = nn.MSELoss()
-    optimizer = optim.SGD(model.parameters(), lr=0.01)
+    optimizer = optim.SGD(model.parameters(), lr=0.001)
 
     # Shape expected by nn.Linear
     X_train = X_train.reshape(sample_size_train, 1)
@@ -180,13 +189,16 @@ if __name__ == "__main__":
     y_eval = y_eval.to(DEVICE)
 
     initial_model_value = model(X_train)
+    train_losses = []
+    eval_losses = []
+    
 
     print(
         criteria(initial_model_value, torch.tensor(y_train).reshape(-1, 1).to(DEVICE))
     )
 
     # Train the model
-    num_epochs = 3000
+    num_epochs = 5000
 
     for epoch in range(num_epochs):
         model.train()
@@ -201,7 +213,12 @@ if __name__ == "__main__":
         with torch.no_grad():
             outputs_eval = model(X_eval)
             loss_eval = criteria(outputs_eval, y_eval)
+            
+            train_loss = loss.item()
+            eval_loss = loss_eval.item()
 
+            train_losses.append(train_loss)
+            eval_losses.append(eval_loss)
             if (epoch + 1) % 100 == 0:
                 print(
                     "Epoch [{}/{}], Loss: {:.4f}".format(
@@ -209,14 +226,49 @@ if __name__ == "__main__":
                     )
                 )
 
-                if loss.item() < 0.5:
-                    break
-
     print("Final loss:", loss.item())
 
     # *** Question 6 **
+    plt.rcParams.update(params)
+    plt.plot(train_losses, label="Training Loss")
+    plt.plot(eval_losses, label="Evaluation Loss")
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.legend()
+    plt.show()
 
     # *** Question 7 **
+    W0 = 0
+    W1 = model.state_dict()["fc1.weight"].cpu().detach().numpy()
+    W2 = model.state_dict()["fc2.weight"].cpu().detach().numpy()
+    W3 = model.state_dict()["fc3.weight"].cpu().detach().numpy()
+    W4 = model.state_dict()["fc4.weight"].cpu().detach().numpy()
+    
+    w0, w1, w2, w3, w4 = coeffs
+    
+    z_min, z_max = z_range
+    z = np.linspace(z_min, z_max, 100)
+    
+    
+    y = w0 + w1 * z + w2 * z**2 + w3 * z**3 + w4 * z**4
+    
+    Y = model(torch.tensor(z.reshape(-1, 1), dtype=torch.float32).to(DEVICE)).cpu().detach().numpy()
+    
+    print(len(y))
+    print(len(Y))
+    
+    # plt.rcParams.update(params)
+    # plt.plot(z, y, color="b")
+    # plt.plot(z, Y, color="r")
+    # plt.xlabel("z")
+    # plt.ylabel("y")
+    # plt.title("Polynomial Plot")
+    # plt.legend(["Original Coefficient", "Estimated Coefficient"])
+    # plt.show() 
+    
+    
+
+    
 
     # *** Question 8 **
 
