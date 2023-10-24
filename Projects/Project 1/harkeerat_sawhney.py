@@ -77,14 +77,15 @@ def create_dataset(
 def visualize_data(X, y, coeffs, z_range, sample_size, title=""):
     print("Starting Exercise 4")
     plt.rcParams.update(params)
-    plt.scatter(X[:, 1], y, color="r")
+    plt.scatter(X[:, 1], y, color="r", label="Data")
+    
 
     z_min, z_max = z_range
     z = np.linspace(z_min, z_max, sample_size)
 
     w0, w1, w2, w3, w4 = coeffs
-    y = w0 + w1 * z + w2 * z**2 + w3 * z**3 + w4 * z**4
-    plt.plot(z, y, color="b")
+    Y = w0 + w1 * z + w2 * z**2 + w3 * z**3 + w4 * z**4
+    plt.plot(z, Y, color="b", label="True Function")
 
     plt.xlabel("z")
     plt.ylabel("y")
@@ -184,7 +185,7 @@ if __name__ == "__main__":
     learned_coef = []
 
     # Train the model
-    num_epochs = 3000
+    num_epochs = 5000
 
     for epoch in range(num_epochs):
         model.train()
@@ -205,17 +206,17 @@ if __name__ == "__main__":
             for name, param in model.named_parameters():
                 if param.requires_grad and "weight" in name:
                     weights.append(param.data.cpu().numpy()[0])
+                    break
 
             learned_coef.append(weights)
 
             if epoch % 1000 == 0:
                 print("Epoch:", epoch, "Loss:", loss.item())
 
-    print("Final loss:", loss.item())
+            # if loss.item() < 0.5:
+            #    break
 
-    for name, param in model.named_parameters():
-        if param.requires_grad:
-            print(param.data[0])
+    print("Final loss:", loss.item())
 
     # *** Question 6 **
     # plt.rcParams.update(params)
@@ -227,19 +228,53 @@ if __name__ == "__main__":
     # plt.show()
 
     # *** Question 7 **
+    estimated_weights = []
+    for name, param in model.named_parameters():
+        if param.requires_grad:
+            print("Weight name:", name, "Weight value:", param.data.cpu().numpy()[0])
+            estimated_weights = (param.data.cpu().numpy()[0])
+            break
+    # print("Printing Estimated Weights", estimated_weights)
     
+    # estimated_weights = np.array(estimated_weights) /
+    
+    # z_min, z_max = z_range
+    # z = np.linspace(z_min, z_max, sample_size_eval)
 
+    # w0, w1, w2, w3, w4 = coeffs
+    # W0, W1, W2, W3, W4 = estimated_weights
+    
+    # y = w0 + w1 * z + w2 * z**2 + w3 * z**3 + w4 * z**4
+    # Y = W0 + W1 * z + W2 * z**2 + W3 * z**3 + W4 * z**4
+    
+    # plt.plot(z, y, color="b", label="True Coefficients")
+    # plt.plot(z, Y, color="r", label="Estimated Coefficients")
+    # estimated_y = model(X_eval)
+    
+    
+    # plt.xlabel("z")
+    # plt.ylabel("y")
+    # plt.title("Estimated Coefficients vs True Coefficients")
+    # plt.legend()
+    # plt.show()
+    
+    
 
     # *** Question 8 **
-    
     print(len(learned_coef))
     print(len(learned_coef[0][0]))
-    
-    # create a double list of w0 values for each epoch
+
     learned_w0 = []
+    learned_w1 = []
+    learned_w2 = []
+    learned_w3 = []
+    learned_w4 = []
     for i in range(len(learned_coef)):
         learned_w0.append(learned_coef[i][0][0])
-        # print(learned_coef[i][0][0])    
+        learned_w1.append(learned_coef[i][0][1])
+        learned_w2.append(learned_coef[i][0][2])
+        learned_w3.append(learned_coef[i][0][3])
+        learned_w4.append(learned_coef[i][0][4])
 
     # Extract true w0 value
     true_w0 = coeffs[0]
