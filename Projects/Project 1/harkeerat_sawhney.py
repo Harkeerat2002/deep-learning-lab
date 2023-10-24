@@ -278,6 +278,10 @@ if __name__ == "__main__":
 
     # Extract true w0 value
     true_w0 = coeffs[0]
+    true_w1 = coeffs[1]
+    true_w2 = coeffs[2]
+    true_w3 = coeffs[3]
+    true_w4 = coeffs[4]
 
     # Create a list of epoch numbers for x-axis
     epochs = list(range(len(learned_w0)))
@@ -289,6 +293,35 @@ if __name__ == "__main__":
     plt.ylabel("w0")
     plt.legend()
     plt.show()
+    
+    plt.plot(epochs, learned_w1, label="Estimated w1")
+    plt.plot(epochs, [true_w1] * len(epochs), label="True w1")
+    plt.xlabel("Epoch")
+    plt.ylabel("w1")
+    plt.legend()
+    plt.show()
+    
+    plt.plot(epochs, learned_w2, label="Estimated w2")
+    plt.plot(epochs, [true_w2] * len(epochs), label="True w2")
+    plt.xlabel("Epoch")
+    plt.ylabel("w2")
+    plt.legend()
+    plt.show()
+    
+    plt.plot(epochs, learned_w3, label="Estimated w3")
+    plt.plot(epochs, [true_w3] * len(epochs), label="True w3")
+    plt.xlabel("Epoch")
+    plt.ylabel("w3")
+    plt.legend()
+    plt.show()
+    
+    plt.plot(epochs, learned_w4, label="Estimated w4")
+    plt.plot(epochs, [true_w4] * len(epochs), label="True w4")
+    plt.xlabel("Epoch")
+    plt.ylabel("w4")
+    plt.legend()
+    plt.show()
+
 
     # *** Question 9 **
 
