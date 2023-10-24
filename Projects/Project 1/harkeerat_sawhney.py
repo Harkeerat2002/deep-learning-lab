@@ -351,6 +351,161 @@ if __name__ == "__main__":
     plt.savefig("./Graph/Estimated-True-w4.png")
 
     # *** Question 9 **
+    print("Starting Exercise 9")
+
+    # Setting the parameters for 1st dataset
+    coeffs = np.array([0, -10, 1, -1, 1 / 1000])
+    z_range = [-3, 3]
+    sigma = 0.5
+    sample_size_train = 10
+    sample_size_eval = 500
+    seed_train = 0
+    seed_eval = 1
+
+    # Creating the dataset
+    X_train, y_train = create_dataset(
+        coeffs, z_range, sample_size_train, sigma, seed_train
+    )
+    X_eval, y_eval = create_dataset(coeffs, z_range, sample_size_eval, sigma, seed_eval)
+
+    # Visualizing the data
+    visualize_data(
+        X_train, y_train, coeffs, z_range, sample_size_train, title="Training Data"
+    )
+    visualize_data(
+        X_eval, y_eval, coeffs, z_range, sample_size_eval, title="Evaluation Data"
+    )
+
+    # *** Question 5 **
+    print("Starting Exercise 5")
+
+    # Check if CUDA (GPU support) is available
+    if torch.cuda.is_available():
+        # Using GPU
+        DEVICE = torch.device("cuda:0")
+    else:
+        # Using CPU
+        DEVICE = torch.device("cpu")
+
+    print("Using device:", DEVICE)
+
+    input_dim = 5
+    output_dim = 1
+
+    # Create the model
+    model = PolynomialRegressionModel(input_dim, output_dim, DEVICE)
+
+    # Define the loss function and optimizer
+    criteria = nn.MSELoss()
+    optimizer = optim.SGD(model.parameters(), lr=0.001)
+
+    # Shape
+    X_train = X_train.reshape(sample_size_train, input_dim)
+    y_train = y_train.reshape(sample_size_train, output_dim)
+    X_eval = X_eval.reshape(sample_size_eval, input_dim)
+    y_eval = y_eval.reshape(sample_size_eval, output_dim)
+
+    # Convert everything to torch
+    X_train = torch.tensor(X_train, dtype=torch.float32)
+    y_train = torch.tensor(y_train, dtype=torch.float32)
+    X_eval = torch.tensor(X_eval, dtype=torch.float32)
+    y_eval = torch.tensor(y_eval, dtype=torch.float32)
+
+    # Move everything to the device you want to use
+    X_train = X_train.to(DEVICE)
+    y_train = y_train.to(DEVICE)
+    X_eval = X_eval.to(DEVICE)
+    y_eval = y_eval.to(DEVICE)
+
+    # Check the initial loss to see if the learning rate is good
+    initial_model_value = model(X_train)
+    print(
+        criteria(initial_model_value, torch.tensor(y_train).reshape(-1, 1).to(DEVICE))
+    )
+
+    # print(len(X_train), len(y_train))
+
+    # Losses and Coef needed for plotting
+    train_losses = []
+    eval_losses = []
+    learned_coef = []
+
+    # Train the model
+    num_epochs = 5000
+    for epoch in range(num_epochs):
+        # Set the model to train mode
+        model.train()
+        
+        # Forward pass
+        optimizer.zero_grad()
+        y_pred = model(X_train)
+        loss = criteria(y_pred, y_train)
+        loss.backward()
+        optimizer.step()
+        train_losses.append(loss.item())
+
+        # Set the model to eval mode
+        model.eval()
+        with torch.no_grad():
+            y_pred_eval = model(X_eval)
+            eval_loss = criteria(y_pred_eval, y_eval)
+            eval_losses.append(eval_loss.item())
+            
+            # Getting the weights for each epoch
+            weights = []
+            for name, param in model.named_parameters():
+                if param.requires_grad and "weight" in name:
+                    weights.append(param.data.cpu().numpy()[0])
+                    break
+            learned_coef.append(weights)
+
+            if epoch % 1000 == 0:
+                print("Epoch:", epoch, "Loss:", loss.item())
+
+            # if loss.item() < 0.5:
+            #    break
+
+    print("Final loss:", loss.item())  
+    plt.figure()
+    plt.rcParams.update(params)
+    plt.plot(train_losses, label="Training Loss")
+    plt.plot(eval_losses, label="Evaluation Loss")
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.title("Training Loss vs Evaluation Loss")
+    plt.legend()
+    plt.savefig("./Graph/Training-Evaluation-Loss2.png")
     
 
+    
+    estimated_weights = []
+    for name, param in model.named_parameters():
+        if param.requires_grad:
+            print("Weight name:", name, "Weight value:", param.data.cpu().numpy()[0])
+            estimated_weights = param.data.cpu().numpy()[0]
+            break
+    # print("Printing Estimated Weights", estimated_weights)
+
+    estimated_weights = np.array(estimated_weights)
+
+    z_min, z_max = z_range
+    z = np.linspace(z_min, z_max, sample_size_eval)
+
+    w0, w1, w2, w3, w4 = coeffs
+    W0, W1, W2, W3, W4 = estimated_weights
+
+    y = w0 + w1 * z + w2 * z**2 + w3 * z**3 + w4 * z**4
+    Y = W0 + W1 * z + W2 * z**2 + W3 * z**3 + W4 * z**4
+    plt.figure()
+    plt.rcParams.update(params)
+    plt.plot(z, y, color="b", label="True Coefficients")
+    plt.plot(z, Y, color="r", label="Estimated Coefficients")
+    
+    estimated_y = model(X_eval)
+
+    plt.xlabel("z")
+    plt.ylabel("y")
+    plt.title("Estimated Coefficients vs True Coefficients")
+    plt.legend()
+    plt.savefig("./Graph/Estimated-True-Coefficients2.png")
     # *** Question 10 **
