@@ -1,7 +1,7 @@
-'''
+"""
 Template for the 4th assignment
 Student: NAME SURNAME
-'''
+"""
 
 ############################
 # Packages
@@ -11,14 +11,15 @@ import torch.nn as nn
 import math
 import regex as re
 
+
 ############################
 # Classes
 ############################
 # Vocabulary class
 class Vocabulary:
-    '''
+    """
     Class for dealing with our corpus
-    '''
+    """
 
     def __init__(self, name, pairs):
         """
@@ -32,31 +33,35 @@ class Vocabulary:
         self.pairs = pairs
 
     def add_word(self, word):
-        '''
+        """
         Add a word to the vocabulary
         :param word: a string
-        '''
+        """
         # TODO: add the word to the vocabulary
         pass
 
     def add_sentence(self, sentence):
-        '''
+        """
         Add a sentence to the vocabulary
         :param sentence: list of strings (words)
-        '''
+        """
         # TODO add the sentence to the vocabulary, this method will call the add_word method
         pass
 
+
 def clear_punctuation(s):
-    '''
+    """
     This function removes all the punctuation from a sentence and insert a blank between any letter and !?.
     :param s: a string
     :return: the "cleaned" string
-    '''
-    re.sub(r"[^a-zA-Z.!?]+", r" ", s)  # Remove all the character that are not letters, puntuation or numbers
+    """
+    re.sub(
+        r"[^a-zA-Z.!?]+", r" ", s
+    )  # Remove all the character that are not letters, puntuation or numbers
     # Insert a blank between any letter and !?. using regex
     s = re.sub(r"([a-zA-Z])([!?.])", r"\1 \2", s)
     return s
+
 
 # Dataset class
 class Dataset(torch.utils.data.Dataset):
@@ -73,11 +78,13 @@ class Dataset(torch.utils.data.Dataset):
         # TODO the tensors should be of type torch.tensor and should contain integers (word indices)
         pass
 
+
 class PositionalEncoding(nn.Module):
-    '''
+    """
     Adapted from
     https://pytorch.org/tutorials/beginner/transformer_tutorial.html
-    '''
+    """
+
     def __init__(self, d_model, dropout=0.0, max_len=5000):
         super(PositionalEncoding, self).__init__()
         self.dropout = nn.Dropout(p=dropout)
@@ -85,29 +92,42 @@ class PositionalEncoding(nn.Module):
 
         pe = torch.zeros(max_len, d_model)
         position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-        div_term = torch.exp(torch.arange(0, d_model, 2).float()
-                             * (-math.log(10000.0) / d_model))
+        div_term = torch.exp(
+            torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model)
+        )
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
         pe = pe.unsqueeze(0).transpose(0, 1)
-        self.register_buffer('pe', pe)
+        self.register_buffer("pe", pe)
 
     def forward(self, x):
         try:
             assert x.size(0) < self.max_len
         except:
-            print("The length of the sequence is bigger than the max_len of the positional encoding. Increase the max_len or provide a shorter sequence.")
-        x = x + self.pe[:x.size(0), :]
+            print(
+                "The length of the sequence is bigger than the max_len of the positional encoding. Increase the max_len or provide a shorter sequence."
+            )
+        x = x + self.pe[: x.size(0), :]
         return self.dropout(x)
 
+
 class TransformerModel(nn.Module):
-    def __init__(self, vocab_size, d_model=512, pad_id=0, encoder_layers=6, decoder_layers=6, dim_feedforward=2048, num_heads=8, dropout_p=0.1):
+    def __init__(
+        self,
+        vocab_size,
+        d_model=512,
+        pad_id=0,
+        encoder_layers=6,
+        decoder_layers=6,
+        dim_feedforward=2048,
+        num_heads=8,
+        dropout_p=0.1,
+    ):
         super().__init__()
         # TODO add an embedding layer
         # TODO add a positional encoding layer
         # TODO add a transformer layer, you can use nn.Transformer. You can use the default values for the parameters, but what about batch_first?
         # TODO add a linear layer. Note: output should be probability distribution over the vocabulary
-
 
         # Stuff you may need
         self.vocab_size = vocab_size
@@ -118,7 +138,6 @@ class TransformerModel(nn.Module):
         # TODO create a boolean mask for the <PAD> tokens
         pass
 
-
     def forward(self, src, tgt):
         # S is the source sequence length, T is the target sequence length, N is the batch size, E is the feature number
         # src: (N, S)
@@ -127,28 +146,41 @@ class TransformerModel(nn.Module):
         # tgt_pad_mask: (N, T)
         # mask the future : (N * num_heads, T, T)
 
-        src_pad_mask = self.create_padding_mask(src, self.pad_id) # (N, S)
-        tgt_pad_mask = self.create_padding_mask(tgt, self.pad_id) # (N, T)
+        src_pad_mask = self.create_padding_mask(src, self.pad_id)  # (N, S)
+        tgt_pad_mask = self.create_padding_mask(tgt, self.pad_id)  # (N, T)
 
         src = self.embedding(src)
         tgt = self.embedding(tgt)
 
         src = self.pos_encoder(src)  # (N, S, E)
-        tgt = self.pos_encoder(tgt) # (N, T, E)
+        tgt = self.pos_encoder(tgt)  # (N, T, E)
 
         # Mask the memory
         memory_key_padding_mask = src_pad_mask  # (N, S)
 
         # Mask the future
-        tgt_mask = self.transformer.generate_square_subsequent_mask(tgt.size(1), dtype=torch.bool).to(tgt.device) # (T, T)
+        tgt_mask = self.transformer.generate_square_subsequent_mask(
+            tgt.size(1), dtype=torch.bool
+        ).to(
+            tgt.device
+        )  # (T, T)
         # Expand to make it N * num_heads, T, T
-        tgt_mask = tgt_mask.unsqueeze(0).repeat(tgt.size(0) * self.num_heads, 1, 1) # (N, T, T)
+        tgt_mask = tgt_mask.unsqueeze(0).repeat(
+            tgt.size(0) * self.num_heads, 1, 1
+        )  # (N, T, T)
         # Transformer
-        output = self.transformer(src, tgt, tgt_mask=tgt_mask, src_key_padding_mask=src_pad_mask,
-                                  tgt_key_padding_mask=tgt_pad_mask, memory_key_padding_mask=memory_key_padding_mask) # (N, T, E)
+        output = self.transformer(
+            src,
+            tgt,
+            tgt_mask=tgt_mask,
+            src_key_padding_mask=src_pad_mask,
+            tgt_key_padding_mask=tgt_pad_mask,
+            memory_key_padding_mask=memory_key_padding_mask,
+        )  # (N, T, E)
         # Linear layer
-        output = self.linear(output) # (N, T, V)
+        output = self.linear(output)  # (N, T, V)
         return output
+
 
 ############################
 # Methods
@@ -158,7 +190,7 @@ if __name__ == "__main__":
     # !!! Don't change the seed !!!
     torch.manual_seed(42)
     # !!!!!!
-    
+
     # Download the data
 
     # Create the pairs
@@ -176,4 +208,3 @@ if __name__ == "__main__":
     # Evaluation by feeding the model with one input sentence at a time
 
     pass
-
